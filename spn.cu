@@ -114,7 +114,7 @@ __global__ void updateVal(node ***p_layer){
 	node *nd=layer[i];
 	node **chs= (node**)(*nd).chs;
 	t=(*nd).w+(*nd).h-2;
-	
+
 	float val=0;
 	for(int k=0;k<t;k++){
 		temp=(*nd).ws[k]*((*chs[2*k]).val)*((*chs[2*k+1]).val);
@@ -126,6 +126,15 @@ __global__ void updateVal(node ***p_layer){
 }
 
 
+
+
+__global__ void delta(node ***p_layer, char *label){
+	node **layer=*p_layer;
+	node *nd=layer[0];
+
+	(*nd).dv=*label-(*nd).dv;
+
+}
 
 
 __global__ void backProp(node ***p_layer){
@@ -146,6 +155,12 @@ __global__ void backProp(node ***p_layer){
 		(*chs[2*k]).dv+=(*nd).dp[k]*(*chs[2*k+1]).val;
 		(*chs[2*k+1]).dv+=(*nd).dp[k]*(*chs[2*k]).val;
 	}
+
+
+}
+
+
+int buildPDSPN(spn* new){
 
 }
 
@@ -467,7 +482,9 @@ int main(int argc,char **argv)
 	    exit(EXIT_FAILURE);
 	}
 
-	for(int i=2*n-1;i>0;i--){
+	delta<<<1,1>>>((node***)(d_tree+2*n-2),d_labels);
+
+	for(int i=2*n-3;i>0;i--){
 		printf("layer: %i, count: %d\n", i, l_count[i]);
 		backProp<<<1,l_count[i]>>>((node***)(d_tree+i));
 	}
