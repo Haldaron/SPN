@@ -19,8 +19,8 @@ int main(int argc,char **argv)
 {   
 	FILE *fd1, *fd2;
 
-	int n,i,j,i2,j2,r,c,tot;
-	int *d_n;
+	int n;
+	spn spn1;
 	float 		tAllocate,tBuild,tForward,tBackProp;
 	cudaEvent_t bAllocate,bBuild,bForward,bBackProp;
 	cudaEvent_t eAllocate,eBuild,eForward,eBackProp;
@@ -38,11 +38,8 @@ int main(int argc,char **argv)
 	char *d_labels;
 
 	int matrix_bytes=n*n*sizeof(void*);
-
 	float 	*d_input;
-
 	node 	**d_maps;
-	node 	***d_tree;
 
 
 	fd2=fopen("/media/german/Shared/Workspace/Datasets/Dummy/dummy10x10-10000-imgs","r");
@@ -80,9 +77,6 @@ int main(int argc,char **argv)
 
 
 
-
-
-	memset(l_count,0,(2*n-1)*sizeof(int));
 	error =cudaEventCreate(&bAllocate);
 	if (error != cudaSuccess){
         printf("cudaEventCreate returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__-2);
@@ -131,53 +125,19 @@ int main(int argc,char **argv)
         exit(EXIT_FAILURE);
 	}
 
-
-
-
-
-	error=cudaMalloc((void **) &d_tree, 2*n*sizeof(void*));
-	if (error != cudaSuccess){
-        printf("cudaMalloc returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-        exit(EXIT_FAILURE);
-	}
-
-	error=cudaMalloc((void **) &d_maps, matrix_bytes);
-	if (error != cudaSuccess){
-        printf("cudaMalloc returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-        exit(EXIT_FAILURE);
-	}
-
+	
 	error=cudaMalloc((void **) &d_input, n*n*sizeof(float));
 	if (error != cudaSuccess){
         printf("cudaMalloc returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
         exit(EXIT_FAILURE);
 	}
 
-	error=cudaMalloc((void **) &d_n, sizeof(int));
-	if (error != cudaSuccess){
-	    printf("cudaMalloc returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-	    exit(EXIT_FAILURE);
-	}
-
-	error=cudaMalloc((void **) &d_l_count, 2*(n)*sizeof(int));
-	if (error != cudaSuccess){
-	    printf("cudaMalloc returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-	    exit(EXIT_FAILURE);
-	}
-
-	error=cudaMemset( d_l_count, 0,2*(n)*sizeof(int));
-	if (error != cudaSuccess){
-	    printf("cudaMalloc returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-	    exit(EXIT_FAILURE);
-	}
-
-	error=cudaMemcpy(d_n,&n,sizeof(int),cudaMemcpyHostToDevice);
-	if (error != cudaSuccess){
-	    printf("cudaMemcpy returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-	    exit(EXIT_FAILURE);
-	}
 
 
+
+	/*-----------------------------------------------------------------------------------------------------------------
+	ALLOCATE
+	-----------------------------------------------------------------------------------------------------------------*/
 
 	error=cudaEventRecord(bAllocate,0);
 	if (error != cudaSuccess){
@@ -185,72 +145,14 @@ int main(int argc,char **argv)
 	    exit(EXIT_FAILURE);
 	}	
 
-	tot=0;
-	for(i=0; i<n;i++){
-		for(j=0; j<n;j++){
 
-			r=n-i;
-			c=n-j;
-			node *mat;
-
-			error=cudaMalloc(&mat,r*c*sizeof(node));
-			if (error != cudaSuccess){
-		        printf("cudaMalloc returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-		    }
-
-		    error=cudaMemcpy(&d_maps[i*n+j],&mat,sizeof(void*), cudaMemcpyHostToDevice);
-			if (error != cudaSuccess){
-		        printf("cudaMemcpy returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-		    }
-		    l_count[i+j]+=r*c;
-
-		    for(i2=0;i2<r;i2++){
-				for(j2=0;j2<c;j2++){
-
-
-					float *vals;
-					node **chs;
-					error=cudaMalloc(&vals,4*(i+j)*sizeof(float));
-					if (error != cudaSuccess){
-				        printf("cudaMalloc returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-				    }
-
-				    error=cudaMalloc(&chs,2*(i+j)*sizeof(float));
-					if (error != cudaSuccess){
-				        printf("cudaMalloc returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-				    }
-
-				    error=cudaMemcpy(&(mat[j2*r+i2].chs),&chs,sizeof(void*), cudaMemcpyHostToDevice);
-					if (error != cudaSuccess){
-				        printf("cudaMemcpy returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-				    }
-					
-				    error=cudaMemcpy(&(mat[j2*r+i2].ws),&vals,sizeof(void*), cudaMemcpyHostToDevice);
-					if (error != cudaSuccess){
-				        printf("cudaMemcpy returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-				    }
-				}			
-			}
-		}
+	error=cudaMalloc((void **) &d_maps, matrix_bytes);
+	if (error != cudaSuccess){
+        printf("cudaMalloc returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
+        exit(EXIT_FAILURE);
 	}
 
-	printf("building tree\n");
-
-	for(i=0;i<2*n-1;i++){
-		node **layer;
-		error=cudaMalloc(&layer,l_count[i]*sizeof(void*));
-		if (error != cudaSuccess){
-	        printf("cudaMalloc returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-	    }
-
-		
-	    error=cudaMemcpy(&(d_tree[i]),&layer,sizeof(void*), cudaMemcpyHostToDevice);
-		if (error != cudaSuccess){
-	        printf("cudaMemcpy returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-	    }
-	    printf("Layer:%d, %d\n",i,l_count[i]);
-	}
-
+	spn_allocate(&spn1,d_maps,n,1);
 	
 	error=cudaEventRecord(eAllocate,0);
 	if (error != cudaSuccess){
@@ -258,8 +160,13 @@ int main(int argc,char **argv)
 	    exit(EXIT_FAILURE);
 	}
 
+	/*-----------------------------------------------------------------------------------------------------------------
+	BUILD
+	-----------------------------------------------------------------------------------------------------------------*/
+
+
 	printf("-------------------------------------\n");
-	printf("TOTAL=%d, (Exp=%d)\n", tot, n*(n+1)*n*(n+1)/4);
+	printf("TOTAL=%d, (Exp=%d)\n", 0, n*(n+1)*n*(n+1)/4);
 	printf("-------------------------------------\n");
 	
 
@@ -271,14 +178,8 @@ int main(int argc,char **argv)
 	    exit(EXIT_FAILURE);
 	}
 
-	for(int i=0;i<n;i++){
-		for(int j=0;j<n;j++){
-			int r=n-i;
-			int c=n-j;
-			dim3 THREAD_DIM (r,c);
-			createNode<<<1,THREAD_DIM>>>(d_n,(node**)d_maps, d_input, d_tree, d_l_count);
-		}
-	}
+	//spn_build(&spn1, d_maps);
+	
 	error = cudaDeviceSynchronize();
 	if (error != cudaSuccess){
 	    printf("cudaMemcpy returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
@@ -301,18 +202,20 @@ int main(int argc,char **argv)
 	    printf("cudaEventRecord returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
 	    exit(EXIT_FAILURE);
 	}
-
-	input<<<1,l_count[i]>>>((node***)(d_tree+i),d_imgs);
-
+	printf("input\n");
+	input<<<1,n*n>>>((node***)((spn1).tree),d_imgs);
+	printf("fwd\n");
 	for(int i=1;i<2*n-1;i++){
-		printf("layer: %i, count: %d\n", i, l_count[i]);
-		updateVal<<<1,l_count[i]>>>((node***)(d_tree+i));
+		printf("layer: %d, count: %d\n", i, (spn1.l_count)[i]);
+		updateVal<<<1,(spn1.l_count)[i]>>>((node***)((spn1.tree)+i));
+		error = cudaDeviceSynchronize();
+		if (error != cudaSuccess){
+		    printf("Kernel updateVal returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
+		    exit(EXIT_FAILURE);
+		}
+		
 	}
-	error = cudaDeviceSynchronize();
-	if (error != cudaSuccess){
-	    printf("Kernel updateVal returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-	    exit(EXIT_FAILURE);
-	}
+
 
 	error=cudaEventRecord(eForward,0);
 	if (error != cudaSuccess){
@@ -330,12 +233,12 @@ int main(int argc,char **argv)
 	    exit(EXIT_FAILURE);
 	}
 
-	delta<<<1,1>>>((node***)(d_tree+2*n-2),d_labels);
+/*	delta<<<1,1>>>((node***)(d_tree+2*n-2),d_labels);
 
 	for(int i=2*n-3;i>0;i--){
 		printf("layer: %i, count: %d\n", i, l_count[i]);
 		backProp<<<1,l_count[i]>>>((node***)(d_tree+i));
-	}
+	}*/
 
 	error = cudaDeviceSynchronize();
 	if (error != cudaSuccess){
