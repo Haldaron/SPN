@@ -19,7 +19,7 @@ int main(int argc,char **argv)
 {   
 	FILE *fd1, *fd2;
 
-	int n;
+	int n,res;
 	spn spn1;
 	float 		tAllocate,tBuild,tForward,tBackProp;
 	cudaEvent_t bAllocate,bBuild,bForward,bBackProp;
@@ -28,8 +28,13 @@ int main(int argc,char **argv)
 
 	if(argc==2){
 		n=atoi(argv[1]);
+		res=1;
+	}else if(argc==3){
+		n=atoi(argv[1]);
+		res=atoi(argv[2]);
 	}else{
 		n=5;
+		res=1;
 	}
 
 	char labels[10000];
@@ -152,7 +157,7 @@ int main(int argc,char **argv)
         exit(EXIT_FAILURE);
 	}
 
-	spn_allocate(&spn1,d_maps,n,1);
+	spn_allocate(&spn1,d_maps,n,res);
 	
 	error=cudaEventRecord(eAllocate,0);
 	if (error != cudaSuccess){
@@ -202,19 +207,19 @@ int main(int argc,char **argv)
 	    printf("cudaEventRecord returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
 	    exit(EXIT_FAILURE);
 	}
-	printf("input\n");
-	input<<<1,n*n>>>((node***)((spn1).tree),d_imgs);
-	printf("fwd\n");
-	for(int i=1;i<2*n-1;i++){
-		printf("layer: %d, count: %d\n", i, (spn1.l_count)[i]);
-		updateVal<<<1,(spn1.l_count)[i]>>>((node***)((spn1.tree)+i));
-		error = cudaDeviceSynchronize();
-		if (error != cudaSuccess){
-		    printf("Kernel updateVal returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-		    exit(EXIT_FAILURE);
-		}
+	// printf("input\n");
+	// input<<<1,n*n>>>((node***)((spn1).tree),d_imgs);
+	// printf("fwd\n");
+	// for(int i=1;i<2*n-1;i++){
+	// 	printf("layer: %d, count: %d\n", i, (spn1.l_count)[i]);
+	// 	updateVal<<<1,(spn1.l_count)[i]>>>((node***)((spn1.tree)+i));
+	// 	error = cudaDeviceSynchronize();
+	// 	if (error != cudaSuccess){
+	// 	    printf("Kernel updateVal returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
+	// 	    exit(EXIT_FAILURE);
+	// 	}
 		
-	}
+	// }
 
 
 	error=cudaEventRecord(eForward,0);
