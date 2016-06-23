@@ -1,9 +1,4 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <curand_kernel.h>
-#include <curand.h>
-#include <math.h>
-#include <iostream>
+
 #include "spn.h"
 
 
@@ -158,6 +153,7 @@ int main(int argc,char **argv)
 	}
 
 	spn_allocate(&spn1,d_maps,n,res);
+	printf("TAMAÑO DE LA SPN: %ld",spn1.size);
 	
 	error=cudaEventRecord(eAllocate,0);
 	if (error != cudaSuccess){
@@ -207,19 +203,16 @@ int main(int argc,char **argv)
 	    printf("cudaEventRecord returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
 	    exit(EXIT_FAILURE);
 	}
-	// printf("input\n");
-	// input<<<1,n*n>>>((node***)((spn1).tree),d_imgs);
-	// printf("fwd\n");
-	// for(int i=1;i<2*n-1;i++){
-	// 	printf("layer: %d, count: %d\n", i, (spn1.l_count)[i]);
-	// 	updateVal<<<1,(spn1.l_count)[i]>>>((node***)((spn1.tree)+i));
-	// 	error = cudaDeviceSynchronize();
-	// 	if (error != cudaSuccess){
-	// 	    printf("Kernel updateVal returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-	// 	    exit(EXIT_FAILURE);
-	// 	}
+	for(int i=1;i<2*(n/res)+2*res-1;i++){
+		updateVal<<<1,(spn1.l_count)[i]>>>((node***)((spn1.tree)+i));
+	}
+	error = cudaDeviceSynchronize();	
+	if (error != cudaSuccess){
+		    printf("Kernel updateVal returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
+		    exit(EXIT_FAILURE);
+	}
 		
-	// }
+	
 
 
 	error=cudaEventRecord(eForward,0);
@@ -238,19 +231,17 @@ int main(int argc,char **argv)
 	    exit(EXIT_FAILURE);
 	}
 
-/*	delta<<<1,1>>>((node***)(d_tree+2*n-2),d_labels);
 
-	for(int i=2*n-3;i>0;i--){
-		printf("layer: %i, count: %d\n", i, l_count[i]);
-		backProp<<<1,l_count[i]>>>((node***)(d_tree+i));
-	}*/
-
+	for(int i=2*(n/res)+2*res-4;i>0;i--){
+		backProp<<<1,(spn1.l_count)[i]>>>((node***)((spn1.tree)+i));
+	
+	}
 	error = cudaDeviceSynchronize();
 	if (error != cudaSuccess){
 	    printf("cudaMemcpy returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
 	    exit(EXIT_FAILURE);
 	}
-
+	
 	error=cudaEventRecord(eBackProp,0);
 	if (error != cudaSuccess){
 	    printf("cudaEventRecord returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
@@ -316,6 +307,7 @@ int main(int argc,char **argv)
 	printf("	Build:\t\t%f\n",tBuild);
 	printf("	Forward:\t%f\n",tForward);
 	printf("	BackProp:\t%f\n",tBackProp);
+	printf("	Total:\t%f\n",tBackProp+tForward);
 
 
 }
